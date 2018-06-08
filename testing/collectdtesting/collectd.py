@@ -6,7 +6,7 @@ import string
 import tempfile
 
 from .assertions import ensure_always
-from .containers import run_container
+from .containers import run_container, container_ip, copy_path_into_container
 from . import fake_backend
 
 
@@ -50,6 +50,7 @@ WRITE_HTTP_TEMPLATE = string.Template("""
 """)
 
 DEFAULT_COLLECTD_IMAGE = "quay.io/signalfuse/collectd:latest"
+COLLECTD_CONF_PATH = "/etc/collectd/collectd.conf"
 
 
 def mount_for_local_dir(local_dir, container_dir):
@@ -75,20 +76,22 @@ def run_collectd(extra_config, plugin_dir, interval=10, image=DEFAULT_COLLECTD_I
                                             extra_config=extra_config)
     with run_collectd_with_config(conf,
                                   [(plugin_dir, "/opt/collectd-plugin")],
-                                  image) as (ingest, get_logs):
-        yield ingest, get_logs
+                                  image) as (ingest, collectd):
+        yield ingest, collectd
 
 
 @contextmanager
-def ingest_running_and_configured(config):
+def ingest_running():
     """
     Starts up the fake ingest/metricproxy combo and also adds a write_http
     config to use that.  Yields the final config with write_http configured and
     the ingest interface
     """
     with fake_backend.run_all() as (ingest, mp_url):
-        final_config = config + "\n" + WRITE_HTTP_TEMPLATE.substitute(url=mp_url)
-        yield final_config, ingest
+        def render_config(config):
+            return config + "\n" + WRITE_HTTP_TEMPLATE.substitute(url=mp_url)
+
+        yield render_config, ingest
 
 
 @contextmanager
@@ -96,21 +99,22 @@ def run_collectd_with_config(config, files=None, image=DEFAULT_COLLECTD_IMAGE):
     """
     Runs collectd with the given config content as the main collectd.conf file.
 
-    Yields a function that can be called to retrieve the latest collectd log
-    output.
+    Yields (ingest, collectd) where `ingest` is the fake backend that has the
+    datapoints and events, and `collectd` is an object that has some helpful
+    methods and attributes for interacting with collectd.
     """
-    with ingest_running_and_configured(config) as (final_config, ingest):
+    with ingest_running() as (render_config, ingest):
         with tempfile.NamedTemporaryFile(dir="/tmp") as conf_file:
-            conf_file.write(final_config.encode('utf-8'))
+            conf_file.write(render_config(config).encode('utf-8'))
             conf_file.flush()
 
             if files is None:
                 files = []
 
-            files.append((conf_file.name, "/etc/collectd/collectd.conf"))
+            files.append((conf_file.name, COLLECTD_CONF_PATH))
             with run_container(image, files,
                                command=[
-                                   "/usr/sbin/collectd", "-C", "/etc/collectd/collectd.conf", "-f"
+                                   "/usr/sbin/collectd", "-C", COLLECTD_CONF_PATH, "-f"
                                ]) as cont:
                 def collectd_running():
                     """
@@ -121,4 +125,31 @@ def run_collectd_with_config(config, files=None, image=DEFAULT_COLLECTD_IMAGE):
 
                 assert ensure_always(collectd_running, 5), "collectd died shortly after starting"
 
-                yield ingest, cont.logs
+                class Collectd():
+                    """
+                    A shell class that holds some attribute and methods useful
+                    for interacting with collectd.
+                    """
+                    container = cont
+
+                    ip = container_ip(cont)
+
+                    def logs(self):
+                        """
+                        Return the latest output from collectd
+                        """
+                        return self.container.logs()
+
+                    def reconfig(self, new_config):
+                        """
+                        Reconfigure collectd by overwriting the config file and
+                        restarting the container
+                        """
+                        conf_file.seek(0)
+                        conf_file.truncate()
+                        conf_file.write(render_config(new_config).encode('utf-8'))
+                        conf_file.flush()
+                        copy_path_into_container(conf_file.name, self.container, COLLECTD_CONF_PATH)
+                        self.container.restart()
+
+                yield ingest, Collectd()
