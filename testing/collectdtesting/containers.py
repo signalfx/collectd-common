@@ -9,6 +9,7 @@ from .assertions import wait_for
 
 DOCKER_API_VERSION = "1.34"
 
+
 def get_docker_client():
     """
     Create a new Docker client, using envvars to configure the client.

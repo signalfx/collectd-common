@@ -42,7 +42,6 @@ def run_fake_ingest():
                 self.end_headers()
                 return
 
-    
             out = obj.SerializeToString()
             self.send_response(200)
             self.send_header("Content-Type", "application/octet-stream")
