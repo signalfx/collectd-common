@@ -7,6 +7,7 @@ import time
 
 DEFAULT_TIMEOUT = 20
 
+
 def wait_for(test, timeout_seconds=DEFAULT_TIMEOUT):
     """
     Repeatedly calls the test function for timeout_seconds until either test
@@ -71,7 +72,7 @@ def has_all_dims(dp_or_event, dims):
     """
     Tests if `dims`'s are all in a certain datapoint or event
     """
-    return dims.items() <= {d.key: d.value for d in dp_or_event.dimensions}.items()
+    return dims.items() <= dict([(d.key, d.value) for d in dp_or_event.dimensions]).items()
 
 
 def has_datapoint_with_all_dims(fake_ingest, dims):
