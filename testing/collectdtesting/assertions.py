@@ -7,6 +7,7 @@ import time
 
 DEFAULT_TIMEOUT = 20
 
+
 def wait_for(test, timeout_seconds=DEFAULT_TIMEOUT):
     """
     Repeatedly calls the test function for timeout_seconds until either test
