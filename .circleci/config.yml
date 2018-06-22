@@ -1,0 +1,32 @@
+version: '2'
+references:
+  init: &init
+    docker:
+      - image: themattrix/tox
+    working_directory: /opt/code
+
+jobs:
+  test-utils:
+    <<: *init
+    steps:
+      - checkout
+      - run:
+          name: Run basic tests
+          working_directory: /opt/code/utils
+          command: tox
+
+  test-testing:
+    <<: *init
+    steps:
+      - checkout
+      - run:
+          name: Run basic tests
+          working_directory: /opt/code/testing
+          command: tox
+
+workflows:
+  version: 2
+  testing:
+    jobs:
+     - test-utils
+     - test-testing
