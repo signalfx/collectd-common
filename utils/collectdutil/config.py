@@ -131,6 +131,7 @@ class Config(object):
                                          .format(str(child.values)))
                         continue
                     self.extra_dimensions[child.values[0]] = child.values[1]
+                    continue
                 if descriptor not in self.descriptors:
                     collectd.warning('Unsupported config descriptor "{0.key}".'.format(child))
                     continue

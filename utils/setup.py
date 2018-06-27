@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='collectdutil',
-    version='0.0.1',
+    version='0.0.2',
     description='Utilities for development of collectd plugins',
     packages=find_packages(),
     include_package_data=True,
