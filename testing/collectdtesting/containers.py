@@ -21,8 +21,8 @@ def print_lines(msg):
     """
     Print each line separately to make it easier to read in pytest output
     """
-    for l in msg.splitlines():
-        print(l)
+    for line in msg.splitlines():
+        print(line)
 
 
 def container_ip(container):
